@@ -2,7 +2,6 @@
 
 package com.topjohnwu.magisk.core
 
-import android.app.Activity
 import android.content.ComponentName
 import android.content.Context
 import android.content.ContextWrapper
@@ -15,25 +14,32 @@ import com.topjohnwu.magisk.R
 import com.topjohnwu.magisk.StubApk
 import com.topjohnwu.magisk.core.di.AppContext
 import com.topjohnwu.magisk.core.utils.syncLocale
+import com.topjohnwu.magisk.ktx.unwrap
 
 lateinit var AppApkPath: String
 
 fun Resources.addAssetPath(path: String) = StubApk.addAssetPath(this, path)
-
-fun Context.wrap(): Context = if (this is PatchedContext) this else PatchedContext(this)
-
-private class PatchedContext(base: Context) : ContextWrapper(base) {
-    init { base.resources.patch() }
-    override fun getClassLoader() = javaClass.classLoader!!
-    override fun createConfigurationContext(config: Configuration) =
-        super.createConfigurationContext(config).wrap()
-}
 
 fun Resources.patch(): Resources {
     if (isRunningAsStub)
         addAssetPath(AppApkPath)
     syncLocale()
     return this
+}
+
+fun Context.patch(): Context {
+    unwrap().resources.patch()
+    return this
+}
+
+// Wrapping is only necessary for ContextThemeWrapper to support configuration overrides
+fun Context.wrap(): Context {
+    patch()
+    return object : ContextWrapper(this) {
+        override fun createConfigurationContext(config: Configuration): Context {
+            return super.createConfigurationContext(config).wrap()
+        }
+    }
 }
 
 fun createNewResources(): Resources {
@@ -48,10 +54,6 @@ fun createNewResources(): Resources {
 
 fun Class<*>.cmp(pkg: String) =
     ComponentName(pkg, Info.stub?.classToComponent?.get(name) ?: name)
-
-inline fun <reified T> Activity.redirect() = Intent(intent)
-    .setComponent(T::class.java.cmp(packageName))
-    .setFlags(0)
 
 inline fun <reified T> Context.intent() = Intent().setComponent(T::class.java.cmp(packageName))
 

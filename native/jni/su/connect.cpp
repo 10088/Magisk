@@ -5,7 +5,6 @@
 #include <selinux.hpp>
 
 #include "su.hpp"
-#include "daemon.hpp"
 
 extern int SDK_INT;
 
@@ -18,9 +17,11 @@ exe, "/system/bin", "com.android.commands.content.Content", \
 #define START_ACTIVITY \
 exe, "/system/bin", "com.android.commands.am.Am", \
 "start", "-p", target, "--user", user, "-a", "android.intent.action.VIEW", \
-"-f", "0x18000020", "--es", "action", action
+"-f", "0x58800020", "--es", "action", action
 
-// 0x18000020 = FLAG_ACTIVITY_NEW_TASK|FLAG_ACTIVITY_MULTIPLE_TASK|FLAG_INCLUDE_STOPPED_PACKAGES
+// 0x58800020 = FLAG_ACTIVITY_NEW_TASK|FLAG_ACTIVITY_MULTIPLE_TASK|
+//              FLAG_ACTIVITY_NO_HISTORY|FLAG_ACTIVITY_EXCLUDE_FROM_RECENTS|
+//              FLAG_INCLUDE_STOPPED_PACKAGES
 
 #define get_cmd(to) \
 ((to).command.empty() ? \
@@ -164,7 +165,7 @@ static void exec_cmd(const char *action, vector<Extra> &data,
 
     // Finally, fallback to start activity with component name
     args[4] = "-n";
-    snprintf(target, sizeof(target), "%s/.ui.surequest.SuRequestActivity", info->mgr_pkg.data());
+    snprintf(target, sizeof(target), "%s/com.topjohnwu.magisk.ui.surequest.SuRequestActivity", info->mgr_pkg.data());
     exec.fd = -2;
     exec.fork = fork_dont_care;
     exec_command(exec);

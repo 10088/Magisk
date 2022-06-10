@@ -4,6 +4,7 @@ import android.content.Context
 import androidx.core.net.toUri
 import androidx.databinding.Bindable
 import androidx.lifecycle.viewModelScope
+import com.topjohnwu.magisk.BR
 import com.topjohnwu.magisk.BuildConfig
 import com.topjohnwu.magisk.R
 import com.topjohnwu.magisk.arch.*
@@ -12,7 +13,7 @@ import com.topjohnwu.magisk.core.Info
 import com.topjohnwu.magisk.core.download.Subject
 import com.topjohnwu.magisk.core.download.Subject.App
 import com.topjohnwu.magisk.core.repository.NetworkService
-import com.topjohnwu.magisk.databinding.itemBindingOf
+import com.topjohnwu.magisk.databinding.bindExtra
 import com.topjohnwu.magisk.databinding.set
 import com.topjohnwu.magisk.events.SnackbarEvent
 import com.topjohnwu.magisk.events.dialog.EnvFixDialog
@@ -23,7 +24,6 @@ import com.topjohnwu.magisk.utils.Utils
 import com.topjohnwu.magisk.utils.asText
 import com.topjohnwu.superuser.Shell
 import kotlinx.coroutines.launch
-import me.tatarka.bindingcollectionadapter2.BR
 import kotlin.math.roundToInt
 
 enum class MagiskState {
@@ -75,8 +75,8 @@ class HomeViewModel(
     var stateManagerProgress = 0
         set(value) = set(value, field, { field = it }, BR.stateManagerProgress)
 
-    val itemBinding = itemBindingOf<IconLink> {
-        it.bindExtra(BR.viewModel, this)
+    val extraBindings = bindExtra {
+        it.put(BR.viewModel, this)
     }
 
     companion object {
@@ -104,13 +104,9 @@ class HomeViewModel(
         ensureEnv()
     }
 
-    val showTest = false
-
-    fun onTestPressed() = object : ViewEvent(), ActivityExecutor {
-        override fun invoke(activity: UIActivity<*>) {
-            /* Entry point to trigger test events within the app */
-        }
-    }.publish()
+    override fun onNetworkChanged(network: Boolean) {
+        requestRefresh()
+    }
 
     fun onProgressUpdate(progress: Float, subject: Subject) {
         if (subject is App)
@@ -151,4 +147,10 @@ class HomeViewModel(
         checkedEnv = true
     }
 
+    val showTest = false
+    fun onTestPressed() = object : ViewEvent(), ActivityExecutor {
+        override fun invoke(activity: UIActivity<*>) {
+            /* Entry point to trigger test events within the app */
+        }
+    }.publish()
 }

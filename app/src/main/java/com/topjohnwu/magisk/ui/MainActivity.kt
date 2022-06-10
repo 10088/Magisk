@@ -13,7 +13,6 @@ import androidx.core.view.isVisible
 import androidx.navigation.NavDirections
 import com.topjohnwu.magisk.MainDirections
 import com.topjohnwu.magisk.R
-import com.topjohnwu.magisk.arch.BaseMainActivity
 import com.topjohnwu.magisk.arch.BaseViewModel
 import com.topjohnwu.magisk.arch.viewModel
 import com.topjohnwu.magisk.core.Config
@@ -31,11 +30,16 @@ import java.io.File
 
 class MainViewModel : BaseViewModel()
 
-class MainActivity : BaseMainActivity<ActivityMainMd2Binding>() {
+class MainActivity : SplashActivity<ActivityMainMd2Binding>() {
 
     override val layoutRes = R.layout.activity_main_md2
     override val viewModel by viewModel<MainViewModel>()
     override val navHostId: Int = R.id.main_nav_host
+    override val snackbarView: View
+        get() {
+            val fragmentOverride = currentFragment?.snackbarView
+            return fragmentOverride ?: super.snackbarView
+        }
     override val snackbarAnchorView: View?
         get() {
             val fragmentAnchor = currentFragment?.snackbarAnchorView
