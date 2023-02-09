@@ -27,6 +27,8 @@ static unique_ptr<map<string, set<string, StringCmp>, StringCmp>> pkg_to_procs_;
 static unique_ptr<map<int, set<string_view>>> app_id_to_pkgs_;
 #define app_id_to_pkgs (*app_id_to_pkgs_)
 
+int sys_ui_app_id = -1;
+
 // Locks the data structures above
 static pthread_mutex_t data_lock = PTHREAD_MUTEX_INITIALIZER;
 
@@ -48,13 +50,16 @@ static void rescan_apps() {
         int dfd = xopenat(dirfd(data_dir.get()), entry->d_name, O_RDONLY);
         if (auto dir = xopen_dir(dfd)) {
             while ((entry = xreaddir(dir.get()))) {
-                // For each package
                 struct stat st{};
-                xfstatat(dfd, entry->d_name, &st, 0);
+                // For each package
+                if (xfstatat(dfd, entry->d_name, &st, 0))
+                    continue;
                 int app_id = to_app_id(st.st_uid);
                 if (auto it = pkg_to_procs.find(entry->d_name); it != pkg_to_procs.end()) {
                     app_id_to_pkgs[app_id].insert(it->first);
                 }
+                if (entry->d_name == "com.android.systemui"sv)
+                    sys_ui_app_id = app_id;
             }
         } else {
             close(dfd);

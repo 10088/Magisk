@@ -161,8 +161,10 @@ static vector<int> get_module_fds(bool is_64_bit) {
 }
 
 static bool get_exe(int pid, char *buf, size_t sz) {
-    ssprintf(buf, sz, "/proc/%d/exe", pid);
-    return xreadlink(buf, buf, sz) > 0;
+    char exe[128];
+    if (ssprintf(exe, sizeof(exe), "/proc/%d/exe", pid) < 0)
+        return false;
+    return xreadlink(exe, buf, sz) > 0;
 }
 
 static pthread_mutex_t zygiskd_lock = PTHREAD_MUTEX_INITIALIZER;
@@ -222,7 +224,20 @@ static void setup_files(int client, const sock_cred *cred) {
         return;
     }
 
+    // Hijack some binary in /system/bin to host loader
+    const char *hbin;
+    string mbin;
+    int app_fd;
     bool is_64_bit = str_ends(buf, "64");
+    if (is_64_bit) {
+        hbin = HIJACK_BIN64;
+        mbin = MAGISKTMP + "/" ZYGISKBIN "/loader64.so";
+        app_fd = app_process_64;
+    } else {
+        hbin = HIJACK_BIN32;
+        mbin = MAGISKTMP + "/" ZYGISKBIN "/loader32.so";
+        app_fd = app_process_32;
+    }
 
     if (!zygote_started) {
         // First zygote launch, record time
@@ -235,6 +250,7 @@ static void setup_files(int client, const sock_cred *cred) {
         close(zygiskd_sockets[1]);
         zygiskd_sockets[0] = -1;
         zygiskd_sockets[1] = -1;
+        xumount2(hbin, MNT_DETACH);
     }
     ++zygote_start_count;
 
@@ -257,20 +273,6 @@ static void setup_files(int client, const sock_cred *cred) {
 
     // Ack
     write_int(client, 0);
-
-    // Hijack some binary in /system/bin to host loader
-    const char *hbin;
-    string mbin;
-    int app_fd;
-    if (is_64_bit) {
-        hbin = HIJACK_BIN64;
-        mbin = MAGISKTMP + "/" ZYGISKBIN "/loader64.so";
-        app_fd = app_process_64;
-    } else {
-        hbin = HIJACK_BIN32;
-        mbin = MAGISKTMP + "/" ZYGISKBIN "/loader32.so";
-        app_fd = app_process_32;
-    }
 
     // Receive and bind mount loader
     int ld_fd = xopen(mbin.data(), O_WRONLY | O_TRUNC | O_CREAT | O_CLOEXEC, 0755);
@@ -304,6 +306,8 @@ static void get_process_info(int client, const sock_cred *cred) {
     int manager_app_id = get_manager();
     if (to_app_id(uid) == manager_app_id) {
         flags |= PROCESS_IS_MAGISK_APP;
+    } else if (to_app_id(uid) == sys_ui_app_id) {
+        flags |= PROCESS_IS_SYS_UI;
     }
     if (denylist_enforced) {
         flags |= DENYLIST_ENFORCING;
